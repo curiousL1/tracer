@@ -16,6 +16,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.media.MediaPlayer;
 import android.net.TrafficStats;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -107,6 +108,13 @@ public class BackgroundService extends Service implements TencentLocationListene
             TencentLocationManager tlManager = TencentLocationManager.getInstance(this);
             int code = tlManager.requestLocationUpdates(request, this);
 
+            // upload cpu info when start
+            HttpUtils httpUtils = HttpUtils.getInstance();
+            try {
+                httpUtils.syncCPUInfoToCloud(getApplicationContext());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
 
         initAlarm();
@@ -175,40 +183,51 @@ public class BackgroundService extends Service implements TencentLocationListene
         alarmUtils.usageAlarmManagerStartWork();
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     @Override
     public void onLocationChanged(TencentLocation tencentLocation, int i, String s) {
+        String lat = "0", lon = "0";
         if (TencentLocation.ERROR_OK == i) {
             // 定位成功
-            HttpUtils httpUtils = HttpUtils.getInstance();
             if (tencentLocation != null) {
-                try {
-                    httpUtils.testMaxNetDownRate();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-//                try {
-//                    httpUtils.testMaxNetUpRate();
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                }
-
-                try {
-                    Thread.sleep(10000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-
-                String lat = String.valueOf(tencentLocation.getLatitude());
-                String lon = String.valueOf(tencentLocation.getLongitude());
-                String result = lat + "," + lon + "," + Utils.tc(System.currentTimeMillis())
-                        + "," + MemUtils.getAvailMem(this) + ","
-                        + HttpUtils.getMaxNetUpRate() + "," + HttpUtils.getMaxNetDownRate() +"\n";
-                Log.d(TAG, ":" + lat + "---" + lon);
-                Utils.writeTxtToFile(result, "/sdcard/czm.tracer/", "gps_data.txt");
+                Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": locate success " + "\r\n",
+                        "/sdcard/czm.tracer/", "log.txt");
+                lat = String.valueOf(tencentLocation.getLatitude());
+                lon = String.valueOf(tencentLocation.getLongitude());
             }
         } else {
             // 定位失败
+            Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": locate failed " + "\r\n",
+                    "/sdcard/czm.tracer/", "log.txt");
+            lat = "err";
+            lon = "err";
         }
+
+        HttpUtils httpUtils = HttpUtils.getInstance();
+        try {
+            httpUtils.testMaxNetDownRate();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // wait for net test result
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        BatteryManager manager = (BatteryManager) getSystemService(BATTERY_SERVICE);
+        int batteryRemain = manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);///当前电量百分比
+
+        String result = lat + "," + lon + "," + Utils.tc(System.currentTimeMillis())
+                + "," + MemUtils.getAvailMem(this) + "," + MemUtils.getTotalMem(this) + ","
+                + HttpUtils.getMaxNetUpRate() + "," + HttpUtils.getMaxNetDownRate() + ","
+                + batteryRemain + "," + CPUUtils.getMaxCpuFreq() + "," +
+                CPUUtils.getCurCpuFreq() + "," + CPUUtils.getMinCpuFreq() +"\n";
+        Log.d(TAG, ":" + lat + "---" + lon);
+        System.out.println("gps_data result: " + result);
+        Utils.writeTxtToFile(result, "/sdcard/czm.tracer/", "gps_data.txt");
     }
 
     @Override
@@ -234,8 +253,6 @@ public class BackgroundService extends Service implements TencentLocationListene
 
     @Subscribe(threadMode = ThreadMode.BACKGROUND)
     public void upload(UploadEvent event){
-        Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": http post begin\r\n",
-                "/sdcard/czm.tracer/", "log.txt");
         final HttpUtils httpUtils = HttpUtils.getInstance();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             final String gpsUri = "/sdcard/czm.tracer/gps_" + Utils.getIMEI(getApplicationContext()) + ".txt";
@@ -260,6 +277,8 @@ public class BackgroundService extends Service implements TencentLocationListene
                     Utils.deleteFile(usageUri);
                 }
             };
+            Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": http post begin\r\n",
+                    "/sdcard/czm.tracer/", "log.txt");
             httpUtils.syncRecordToCloud(this, new File(gpsUri), new File(usageUri), callback);
 
         }
@@ -267,6 +286,13 @@ public class BackgroundService extends Service implements TencentLocationListene
 
     @Subscribe(threadMode = ThreadMode.BACKGROUND)
     public void writeUsage(UsageEvent msg){
+        // wait for gps_data
+        try {
+            Thread.sleep(12000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": write usage begin\r\n",
                 "/sdcard/czm.tracer/", "log.txt");
         Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": write usage begin\r\n",

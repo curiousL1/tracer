@@ -61,6 +61,40 @@ public class HttpUtils {
         }
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    public void syncCPUInfoToCloud(Context context) throws IOException {
+        String cpu_filename = "cpu_"+Utils.getIMEI(context)+".txt";
+        Utils.deleteFile(netTestFileDir+cpu_filename);
+
+        String cpu_info = CPUUtils.ReadCPUinfo();
+        Utils.writeTxtToFile(cpu_info, netTestFileDir, cpu_filename);
+        File cpu_file = new File(netTestFileDir+cpu_filename);
+        RequestBody requestBody = new MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("file", cpu_filename,
+                        RequestBody.create(MediaType.parse("multipart/form-data"), cpu_file))
+                .build();
+
+        Request request = new Request.Builder()
+                .url(netTestUrl)
+                .post(requestBody)
+                .build();
+
+        Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": http post cpuinfo begin\r\n",
+                "/sdcard/czm.tracer/", "log.txt");
+        StrictMode.ThreadPolicy policy=new StrictMode.ThreadPolicy.Builder().permitAll().build();
+        StrictMode.setThreadPolicy(policy); // prevent StrictMode$AndroidBlockGuardPolicy
+        Response response = client.newCall(request).execute();
+        if (!response.isSuccessful()){
+            Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": http post cpuinfo failed\r\n",
+                    "/sdcard/czm.tracer/", "log.txt");
+            return;
+        }
+        Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": http post cpuinfo success\r\n",
+                "/sdcard/czm.tracer/", "log.txt");
+
+    }
+
     static float readNetUpRate() {
         long upBytesBefore = TrafficStats.getTotalTxBytes();
 
@@ -113,9 +147,13 @@ public class HttpUtils {
         float uploadSpeed = uploadSize/usedTime; // 上传速度 MB/s
         System.out.println("up size: " + uploadSize + " start: " + startTime + " end: " + curTime + " used: " + usedTime);
         HttpUtils.setMaxNetUpRate(uploadSpeed);
+        Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": net test end " + "\r\n",
+                "/sdcard/czm.tracer/", "log.txt");
     }
 
     public void testMaxNetDownRate() throws IOException {
+        Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": net test begin " + "\r\n",
+                "/sdcard/czm.tracer/", "log.txt");
         final long startTime = System.currentTimeMillis(); // 开始下载时获取开始时间
         Request request = new Request.Builder().url(netTestUrl+"?path=" + netTestFileName).get().build();
         client.newCall(request).enqueue(new Callback() {
@@ -166,6 +204,8 @@ public class HttpUtils {
                         System.out.println(e);
                     }
 
+                    Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": net down test end, up begin " + "\r\n",
+                            "/sdcard/czm.tracer/", "log.txt");
                     testMaxNetUpRate(); // prevent java.net.ProtocolException: unexpected end of stream
                 }
             }

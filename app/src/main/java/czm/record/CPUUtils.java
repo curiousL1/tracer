@@ -11,6 +11,8 @@ import androidx.annotation.RequiresApi;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -117,7 +119,7 @@ public class CPUUtils {
             InputStream in = process.getInputStream();
             byte[] re = new byte[1024];
             while(in.read(re) != -1){
-                System.out.println(new String(re));
+                // System.out.println(new String(re));
                 result = result + new String(re);
             }
             in.close();
@@ -138,5 +140,63 @@ public class CPUUtils {
         }
         System.out.println("CPU active:" + active + " total: " + total);
         return (float) active/total;
+    }
+
+    public static String getMaxCpuFreq() {
+        String result = "";
+        ProcessBuilder cmd;
+        try {
+            String[] args = { "/system/bin/cat",
+                    "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq" };
+            cmd = new ProcessBuilder(args);
+            Process process = cmd.start();
+            InputStream in = process.getInputStream();
+            byte[] re = new byte[24];
+            while (in.read(re) != -1) {
+                result = result + new String(re);
+            }
+            in.close();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            result = "N/A";
+        }
+        return result.trim();
+    }
+
+    public static String getCurCpuFreq() {
+        String result = "N/A";
+        try {
+            FileReader fr = new FileReader(
+                    "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq");
+            BufferedReader br = new BufferedReader(fr);
+            String text = br.readLine();
+            result = text.trim();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    public static String getMinCpuFreq() {
+        String result = "";
+        ProcessBuilder cmd;
+        try {
+            String[] args = { "/system/bin/cat",
+                    "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq" };
+            cmd = new ProcessBuilder(args);
+            Process process = cmd.start();
+            InputStream in = process.getInputStream();
+            byte[] re = new byte[24];
+            while (in.read(re) != -1) {
+                result = result + new String(re);
+            }
+            in.close();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            result = "N/A";
+        }
+        return result.trim();
     }
 }
