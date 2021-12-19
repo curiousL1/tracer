@@ -27,7 +27,7 @@ public class HttpUtils {
     private static volatile HttpUtils instance;
     private OkHttpClient client = new OkHttpClient();
     private String url = "http://inpluslab.com/paperwriting2019/multifile.php";
-    private static String netTestUrl = "http://120.77.38.15:8000/api/storage";
+    private static String netTestUrl = "http://8.134.60.169:8000/api/storage";
     private static String netTestFileDir = "/sdcard/czm.tracer/";
     private static String netTestFileName = "1.bmp";
     private static float maxUprate = 0;

@@ -93,7 +93,7 @@ public class BackgroundService extends Service implements TencentLocationListene
             notification = new Notification.Builder(this)
                     .setChannelId(CHANNEL_ID)
                     .setContentTitle("Tracer")//标题
-                    .setContentText("Have a nice day~")//内容
+                    .setContentText(Utils.getIMEI(getApplicationContext()))//内容z
                     .setContentIntent(pendingIntent)
                     .setWhen(System.currentTimeMillis())
                     .setSmallIcon(R.drawable.icon)//小图标一定需要设置,否则会报错(如果不设置它启动服务前台化不会报错,但是你会发现这个通知不会启动),如果是普通通知,不设置必然报错
@@ -288,71 +288,72 @@ public class BackgroundService extends Service implements TencentLocationListene
     public void writeUsage(UsageEvent msg){
         // wait for gps_data
         try {
-            Thread.sleep(12000);
+            Thread.sleep(11000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
         Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": write usage begin\r\n",
                 "/sdcard/czm.tracer/", "log.txt");
-        Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": write usage begin\r\n",
-                "/sdcard/czm.tracer/", "usage.txt");
-        SharedPreferences preferences = getSharedPreferences("config", Context.MODE_PRIVATE);
-        long lastTime = preferences.getLong("lastTime", 0);
-        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            UsageStatsManager usm = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
-            USAGE_STATS_PERIOD = 1000 * 60 * 60 * 24 * 1;
-            now = System.currentTimeMillis();
-            Log.d(TAG, "lastTime: " + lastTime);
-            if (lastTime != 0)
-                beginTime = lastTime;
-            else
-                beginTime = now - now % USAGE_STATS_PERIOD;
-            Log.d(TAG, "begin: " + beginTime);
-            UsageEvents usageEvents = usm.queryEvents(beginTime, now);
-            String foreEvent = null, appName = null;
-            String result = "";
-            long appStart = 0, appEnd = 0;
-            //遍历这个事件集合，如果还有下一个事件
-            while (usageEvents.hasNextEvent()) {
-                UsageEvents.Event event = new UsageEvents.Event();
-                //得到下一个事件放入event中,先得得到下个一事件，如果这个时候直接调用，则	event的package是null，type是0。
-                usageEvents.getNextEvent(event);
-                if (event.getPackageName().contains("android")) continue;
-//                Log.d(TAG, "package == " + event.getPackageName() + ",  type == " + event.getEventType()
-//                        + ", time == " + event.getTimeStamp());
-                //如果这是个将应用置于前台的事件
-                if (event.getEventType() == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                    //获取这个前台事件的packageName.time
-                    foreEvent = event.getPackageName();
-                    appStart = event.getTimeStamp();
-                } else if (event.getEventType() == UsageEvents.Event.MOVE_TO_BACKGROUND && event.getPackageName().equals(foreEvent)) {
-                    //如果是最后一个前台应用的置于后台的动作
-                    PackageManager pm = getPackageManager();
-                    try {
-                        ApplicationInfo appInfo = pm.getApplicationInfo(event.getPackageName(), PackageManager.GET_META_DATA);
-
-                        appName = (String) pm.getApplicationLabel(appInfo);
-                        //appIcon = pm.getApplicationIcon(appInfo);
-
-                    } catch (PackageManager.NameNotFoundException e) {
-                        e.printStackTrace();
-                    }
-
-                    appEnd = event.getTimeStamp();
-                    result = foreEvent + "," + appName + "," + Utils.tc(appStart) +
-                            "," + Utils.tc(appEnd) + "," + (appEnd - appStart) + "\n";
-                    Utils.writeTxtToFile(result, "/sdcard/czm.tracer/", "usage.txt");
-                }
-
-            }
-            Log.d(TAG, "appEnd = " + appEnd);
-            if (appEnd != 0) {
-                SharedPreferences.Editor editor = preferences.edit();
-                editor.putLong("lastTime", appEnd);
-                editor.apply();
-            }
-        }
+//        Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": write usage begin\r\n",
+//                "/sdcard/czm.tracer/", "usage.txt");
+//        SharedPreferences preferences = getSharedPreferences("config", Context.MODE_PRIVATE);
+//        long lastTime = preferences.getLong("lastTime", 0);
+//        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+//            UsageStatsManager usm = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
+//            USAGE_STATS_PERIOD = 1000 * 60 * 60 * 24 * 1;
+//            now = System.currentTimeMillis();
+//            Log.d(TAG, "lastTime: " + lastTime);
+//            if (lastTime != 0)
+//                beginTime = lastTime;
+//            else
+//                beginTime = now - now % USAGE_STATS_PERIOD;
+//            Log.d(TAG, "begin: " + beginTime);
+//            UsageEvents usageEvents = usm.queryEvents(beginTime, now);
+//            String foreEvent = null, appName = null;
+//            String result = "";
+//            long appStart = 0, appEnd = 0;
+//            //遍历这个事件集合，如果还有下一个事件
+//            while (usageEvents.hasNextEvent()) {
+//                UsageEvents.Event event = new UsageEvents.Event();
+//                //得到下一个事件放入event中,先得得到下个一事件，如果这个时候直接调用，则	event的package是null，type是0。
+//                usageEvents.getNextEvent(event);
+//                if (event.getPackageName().contains("android")) continue;
+////                Log.d(TAG, "package == " + event.getPackageName() + ",  type == " + event.getEventType()
+////                        + ", time == " + event.getTimeStamp());
+//                //如果这是个将应用置于前台的事件
+//                if (event.getEventType() == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+//                    //获取这个前台事件的packageName.time
+//                    foreEvent = event.getPackageName();
+//                    appStart = event.getTimeStamp();
+//                } else if (event.getEventType() == UsageEvents.Event.MOVE_TO_BACKGROUND && event.getPackageName().equals(foreEvent)) {
+//                    //如果是最后一个前台应用的置于后台的动作
+//                    PackageManager pm = getPackageManager();
+//                    try {
+//                        ApplicationInfo appInfo = pm.getApplicationInfo(event.getPackageName(), PackageManager.GET_META_DATA);
+//
+//                        appName = (String) pm.getApplicationLabel(appInfo);
+//                        //appIcon = pm.getApplicationIcon(appInfo);
+//
+//                    } catch (PackageManager.NameNotFoundException e) {
+//                        e.printStackTrace();
+//                    }
+//
+//                    appEnd = event.getTimeStamp();
+//                    result = foreEvent + "," + appName + "," + Utils.tc(appStart) +
+//                            "," + Utils.tc(appEnd) + "," + (appEnd - appStart) + "\n";
+//                    Utils.writeTxtToFile(result, "/sdcard/czm.tracer/", "usage.txt");
+//                }
+//
+//            }
+//            Log.d(TAG, "appEnd = " + appEnd);
+//            if (appEnd != 0) {
+//                SharedPreferences.Editor editor = preferences.edit();
+//                editor.putLong("lastTime", appEnd);
+//                editor.apply();
+//            }
+//        }
+        Utils.writeTxtToFile("usage ignored.\n", "/sdcard/czm.tracer/", "usage.txt");
         FileTask task = new FileTask(this);
         task.execute();
         Utils.writeTxtToFile( Utils.tc(System.currentTimeMillis()) + ": file operate begin\r\n",
